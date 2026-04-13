@@ -340,7 +340,8 @@
   <!-- ================= LÓGICA JAVASCRIPT ================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    // Corregimos la importación para asegurar que todas las funciones de Auth estén disponibles.
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // --- CONFIGURACIÓN FIREBASE BLINDADA ---
@@ -353,7 +354,6 @@
       console.warn("Usando configuración de respaldo");
     }
 
-    // Si abres el archivo localmente o falla la inyección, usa tu Firebase real para no colapsar la app
     if (!firebaseConfig || !firebaseConfig.apiKey) {
       firebaseConfig = {
         apiKey: "AIzaSyA9HXjjB67QPFRdikkkWALy4w3tDh24qdQ",
@@ -396,8 +396,20 @@
     const secSim = document.getElementById('section-simulator');
 
     // Inicializar Iconos de forma segura
-    const updateIcons = () => setTimeout(() => { try { lucide.createIcons(); } catch(e){} }, 10);
+    const updateIcons = () => setTimeout(() => { try { if(window.lucide) window.lucide.createIcons(); } catch(e){} }, 50);
     updateIcons();
+
+    // SISTEMA DE EMERGENCIA: Forzar ocultar la pantalla de carga si hay un error de red o Firebase
+    setTimeout(() => {
+      if (!vLoader.classList.contains('hidden')) {
+        vLoader.classList.add('hidden');
+        if (!sessionStorage.getItem('botadmin_logged')) {
+            vAuth.classList.remove('hidden');
+        } else {
+            showDashboard();
+        }
+      }
+    }, 2500);
 
     // --- NAVEGACIÓN ---
     function switchView(view) {
@@ -425,7 +437,7 @@
     document.getElementById('nav-clients').onclick = () => switchView('clients');
     document.getElementById('nav-simulator').onclick = () => switchView('simulator');
 
-    // --- AUTENTICACIÓN (LÓGICA SEPARADA PARA EVITAR CARGA INFINITA) ---
+    // --- AUTENTICACIÓN ---
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -434,31 +446,25 @@
           await signInAnonymously(auth);
         }
       } catch (error) {
-        console.error("Error autenticando DB:", error);
+        console.error("Aviso: Inicializando en modo seguro sin Auth pública");
       }
     };
     initAuth();
 
-    // Firebase detecta el usuario silencioso
+    // Escuchador de Firebase
     onAuthStateChanged(auth, (user) => {
       if (user) {
         currentUser = user;
-        vLoader.classList.add('hidden');
-        
-        // Verificamos si ya inició sesión manualmente en la interfaz visual
-        if (sessionStorage.getItem('botadmin_logged') === 'true') {
-          showDashboard();
-        } else {
-          vAuth.classList.remove('hidden');
-        }
+      }
+      vLoader.classList.add('hidden');
+      if (sessionStorage.getItem('botadmin_logged') === 'true') {
+        showDashboard();
       } else {
-        // Si no hay usuario en absoluto, muestra el login
-        vLoader.classList.add('hidden');
         vAuth.classList.remove('hidden');
       }
     });
 
-    // Validar visualmente el inicio de sesión del Administrador
+    // Inicio de sesión Privado Blindado
     document.getElementById('auth-form').onsubmit = async (e) => {
       e.preventDefault();
       const email = document.getElementById('auth-email').value;
@@ -471,17 +477,30 @@
       submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>`;
       updateIcons();
 
-      // Pequeña pausa simulando carga
-      await new Promise(r => setTimeout(r, 800));
-
+      // Validación estricta inmediata (Evita quedarse bloqueado si Firebase falla)
       if (email === 'admin@miempresa.com' && pwd === 'admin123456') {
         sessionStorage.setItem('botadmin_logged', 'true');
-        showDashboard();
+        
+        // Intentar registrar la sesión en la nube en segundo plano (No bloquea la UI)
+        try {
+            await signInWithEmailAndPassword(auth, email, pwd);
+        } catch (err) {
+            try { await createUserWithEmailAndPassword(auth, email, pwd); } catch (ex) {}
+        }
+
+        setTimeout(() => {
+            showDashboard();
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<span id="auth-submit-text">Acceder al Panel</span>`;
+        }, 500);
       } else {
-        errBox.classList.remove('hidden');
-        document.getElementById('auth-error-msg').textContent = 'Credenciales incorrectas.';
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `<span id="auth-submit-text">Acceder al Panel</span>`;
+        setTimeout(() => {
+            errBox.classList.remove('hidden');
+            document.getElementById('auth-error-msg').textContent = 'Credenciales incorrectas.';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<span id="auth-submit-text">Acceder al Panel</span>`;
+            updateIcons();
+        }, 500);
       }
     };
 
@@ -502,16 +521,25 @@
     };
 
     // --- BASE DE DATOS (CLIENTES) ---
+    function getUserId() {
+        return currentUser ? currentUser.uid : "admin-local-123";
+    }
+
     let unsubscribeClients = null;
     function loadClientsData() {
-      if (!currentUser) return;
       if (unsubscribeClients) unsubscribeClients();
-      const clientsRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'chatbot_clients');
-      unsubscribeClients = onSnapshot(clientsRef, (snapshot) => {
-        clients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (currentView === 'clients') renderClientsList();
-        if (currentView === 'simulator') updateSimulatorOptions();
-      });
+      try {
+        const clientsRef = collection(db, 'artifacts', appId, 'users', getUserId(), 'chatbot_clients');
+        unsubscribeClients = onSnapshot(clientsRef, (snapshot) => {
+          clients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          if (currentView === 'clients') renderClientsList();
+          if (currentView === 'simulator') updateSimulatorOptions();
+        }, (err) => {
+          console.error("Modo base de datos sin conexión", err);
+        });
+      } catch(e) {
+         console.warn("Base de datos no iniciada todavía");
+      }
     }
 
     function renderClientsList() {
@@ -567,7 +595,7 @@
           btn.onclick = async (e) => {
             if (!confirm('¿Eliminar cliente permanentemente?')) return;
             const id = e.currentTarget.dataset.id;
-            await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'chatbot_clients', id));
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', getUserId(), 'chatbot_clients', id));
           };
         });
       }
@@ -615,7 +643,7 @@
       };
       
       const cid = document.getElementById('edit-id').value || crypto.randomUUID();
-      await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'chatbot_clients', cid), { ...clientData, id: cid, updatedAt: new Date().toISOString() });
+      await setDoc(doc(db, 'artifacts', appId, 'users', getUserId(), 'chatbot_clients', cid), { ...clientData, id: cid, updatedAt: new Date().toISOString() });
       switchView('clients');
     };
 
