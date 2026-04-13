@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BotAdmin Pro - SaaS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Iconos de Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Estilos personalizados para scrollbars y animaciones */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(99, 102, 241, 0.5); border-radius: 10px; }
+    .glass-panel { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-900 overflow-hidden h-screen w-screen">
+
+  <!-- ================= VISTA: PANTALLA DE CARGA ================= -->
+  <div id="view-loader" class="absolute inset-0 z-50 flex items-center justify-center bg-[#0B1120] flex-col gap-4">
+    <i data-lucide="loader-2" class="w-10 h-10 text-indigo-500 animate-spin"></i>
+    <p class="text-indigo-200 font-medium tracking-wide animate-pulse">Iniciando BotAdmin Pro...</p>
+  </div>
+
+  <!-- ================= VISTA: AUTENTICACIÓN (LOGIN PRIVADO) ================= -->
+  <div id="view-auth" class="hidden absolute inset-0 z-40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black p-4 flex items-center justify-center overflow-y-auto">
+    <div class="w-full max-w-md my-auto">
+      <div class="text-center mb-10">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-xl shadow-indigo-500/30 mb-6">
+          <i data-lucide="shield-check" class="w-8 h-8 text-white"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-white tracking-tight">Panel <span class="text-indigo-400">Administrador</span></h1>
+        <p class="text-indigo-200/60 mt-2 font-medium">Acceso Privado SaaS</p>
+      </div>
+
+      <div class="glass-panel rounded-3xl p-8 shadow-2xl">
+        <h2 id="auth-title" class="text-xl font-semibold text-white mb-6">Iniciar Sesión</h2>
+
+        <div id="auth-error" class="hidden bg-red-500/10 border border-red-500/50 text-red-200 px-4 py-3 rounded-xl text-sm mb-6 flex items-center gap-2">
+          <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+          <span id="auth-error-msg">Error</span>
+        </div>
+
+        <form id="auth-form" class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-indigo-100/70 mb-2">Correo Electrónico</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-indigo-300">
+                <i data-lucide="mail" class="w-5 h-5"></i>
+              </div>
+              <input type="email" id="auth-email" value="admin@miempresa.com" class="w-full pl-11 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white transition-all" required />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-indigo-100/70 mb-2">Contraseña</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-indigo-300">
+                <i data-lucide="lock" class="w-5 h-5"></i>
+              </div>
+              <input type="password" id="auth-password" value="admin123456" class="w-full pl-11 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-white transition-all" required />
+            </div>
+          </div>
+          <button type="submit" id="auth-submit-btn" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-indigo-500/25 transition-all transform hover:-translate-y-0.5 flex justify-center items-center gap-2 mt-4">
+            <span id="auth-submit-text">Acceder al Panel</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= VISTA: DASHBOARD ================= -->
+  <div id="view-dashboard" class="hidden h-full w-full flex bg-[#F3F4F6]">
+    
+    <!-- Sidebar -->
+    <aside class="w-[280px] bg-[#0B1120] text-slate-300 flex flex-col border-r border-slate-800/50 shadow-2xl z-20 relative">
+      <div class="p-8 flex items-center gap-4 border-b border-white/5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <i data-lucide="bot" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-white tracking-tight">BotAdmin Pro</h1>
+          <p class="text-[10px] uppercase tracking-widest text-indigo-400 font-semibold mt-0.5">SaaS Platform</p>
+        </div>
+      </div>
+      
+      <nav class="flex-1 px-4 py-8 space-y-2">
+        <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Menú Principal</p>
+        <button id="nav-clients" class="w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group bg-indigo-500 text-white shadow-lg shadow-indigo-500/20">
+          <div class="flex items-center gap-3">
+            <i data-lucide="users" class="w-5 h-5"></i>
+            <span class="font-medium text-sm">Gestión de Clientes</span>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 opacity-70"></i>
+        </button>
+        <button id="nav-simulator" class="w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group text-slate-400 hover:bg-white/5 hover:text-slate-200">
+          <div class="flex items-center gap-3">
+            <i data-lucide="play-circle" class="w-5 h-5"></i>
+            <span class="font-medium text-sm">Simulador IA</span>
+          </div>
+        </button>
+      </nav>
+      
+      <div class="p-4 border-t border-white/5">
+        <div class="bg-white/5 rounded-xl p-4 flex items-center gap-3 mb-4">
+          <div id="user-avatar" class="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold uppercase">A</div>
+          <div class="flex-1 overflow-hidden">
+            <p id="user-email" class="text-sm font-medium text-white truncate">Admin</p>
+            <p class="text-xs text-slate-500">Master Admin</p>
+          </div>
+        </div>
+        <button id="btn-logout" class="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+          <i data-lucide="log-out" class="w-4 h-4"></i> Cerrar Sesión
+        </button>
+      </div>
+    </aside>
+
+    <!-- Área Principal -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+      <div class="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none"></div>
+      
+      <!-- SECCIÓN: LISTA DE CLIENTES -->
+      <div id="section-clients" class="flex-1 overflow-auto p-10 z-10 block">
+        <div class="flex justify-between items-end mb-10">
+          <div>
+            <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Panel de Clientes</h2>
+            <p class="text-slate-500 mt-2 text-sm font-medium">Administra y configura los chatbots de tus empresas.</p>
+          </div>
+          <button id="btn-new-client" class="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-indigo-500/30 transform hover:-translate-y-0.5">
+            <i data-lucide="plus" class="w-5 h-5"></i> Nuevo Cliente
+          </button>
+        </div>
+
+        <!-- Estado Vacío -->
+        <div id="clients-empty" class="hidden bg-white/80 backdrop-blur-sm border border-slate-200/60 rounded-3xl p-16 text-center shadow-xl shadow-slate-200/20">
+          <div class="w-20 h-20 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <i data-lucide="users" class="w-10 h-10"></i>
+          </div>
+          <h3 class="text-2xl font-bold text-slate-800 mb-2">Aún no hay clientes</h3>
+          <p class="text-slate-500 mb-8 max-w-md mx-auto">Comienza agregando tu primera empresa para crearle una base de conocimiento y su propio chatbot inteligente.</p>
+          <button id="btn-new-client-empty" class="bg-white border-2 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 px-6 py-3 rounded-xl font-bold transition-all shadow-sm">
+            Crear Primer Cliente
+          </button>
+        </div>
+
+        <!-- Grid de Clientes -->
+        <div id="clients-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <!-- Renderizado por JS -->
+        </div>
+      </div>
+
+      <!-- SECCIÓN: EDITOR DE CLIENTE -->
+      <div id="section-editor" class="hidden flex-1 overflow-auto bg-[#F3F4F6] relative z-10">
+        <div class="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-10 py-5 flex justify-between items-center shadow-sm">
+          <div class="flex items-center gap-4">
+            <button id="btn-cancel-edit" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <div>
+              <h2 id="editor-title" class="text-xl font-bold text-slate-800">Crear Nuevo Cliente</h2>
+              <p class="text-xs text-slate-500 font-medium">Configura la identidad y conocimiento de la IA</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <button id="btn-show-embed" class="hidden flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-600 rounded-xl font-bold text-sm transition-all shadow-sm">
+              <i data-lucide="code" class="w-4 h-4"></i> Instalar Bot
+            </button>
+            <button id="btn-save-client" class="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-500/25">
+              Guardar Configuración
+            </button>
+          </div>
+        </div>
+
+        <div class="p-10 max-w-5xl mx-auto space-y-8 pb-20">
+          <!-- Form Data Oculta (ID) -->
+          <input type="hidden" id="edit-id">
+
+          <!-- Card 1: Perfil -->
+          <div class="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-xl shadow-slate-200/20">
+            <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+              <span class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i data-lucide="users" class="w-4 h-4"></i></span> Perfil de la Empresa
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Nombre de la Empresa</label>
+                <input type="text" id="edit-name" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" placeholder="Ej: Zapatería Premium" required />
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Sitio Web (Opcional)</label>
+                <input type="url" id="edit-domain" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" placeholder="https://..." />
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Apariencia -->
+          <div class="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-xl shadow-slate-200/20">
+            <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+               <span class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center"><i data-lucide="bot" class="w-4 h-4"></i></span> Apariencia y Comportamiento
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+               <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Mensaje de Bienvenida</label>
+                <input type="text" id="edit-greeting" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all" value="¡Hola! Soy el asistente virtual. ¿En qué te puedo ayudar?" />
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Color Corporativo (Widget)</label>
+                <div class="flex items-center gap-4 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                  <input type="color" id="edit-color" class="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent" value="#4F46E5" />
+                  <span id="edit-color-hex" class="text-sm font-mono text-slate-600 uppercase font-medium">#4F46E5</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-2">Desvío a Asesor Humano (WhatsApp)</label>
+              <input type="text" id="edit-whatsapp" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all" placeholder="Ej: 573001234567 (Solo números)" />
+              <p class="text-xs text-slate-500 mt-2 font-medium">Al configurar esto, aparecerá un botón en el chat para enviar el historial al asesor.</p>
+            </div>
+          </div>
+
+          <!-- Card 3: Base de Conocimiento -->
+          <div class="bg-slate-900 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl"></div>
+            <div class="flex justify-between items-start mb-6 relative z-10">
+              <div>
+                <h3 class="text-xl font-bold text-white flex items-center gap-3">Cerebro de la IA</h3>
+                <p class="text-sm text-indigo-200/70 mt-1 max-w-xl">Alimenta al asistente con texto o sube un PDF. La IA responderá exclusivamente usando esta información.</p>
+              </div>
+              <div>
+                <input type="file" id="pdf-upload" accept=".pdf" class="hidden" />
+                <button type="button" id="btn-upload-pdf" class="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-bold transition-all border border-white/10">
+                  <i data-lucide="upload-cloud" id="pdf-icon" class="w-4 h-4"></i>
+                  <span id="pdf-btn-text">Entrenar con PDF</span>
+                </button>
+              </div>
+            </div>
+            <textarea id="edit-knowledge" class="w-full h-80 px-5 py-4 bg-black/40 border border-white/10 text-indigo-50 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all resize-none font-mono text-sm leading-relaxed relative z-10 custom-scrollbar" placeholder="- Escribe o pega aquí la información de tu empresa..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN: SIMULADOR -->
+      <div id="section-simulator" class="hidden flex-1 flex flex-col p-10 bg-[#F3F4F6] relative z-10">
+        
+        <div id="sim-empty" class="hidden flex-1 flex-col items-center justify-center text-center">
+          <div class="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-6">
+            <i data-lucide="bot" class="w-12 h-12 text-slate-300"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-800">Simulador Inactivo</h2>
+          <p class="text-slate-500 mt-3 max-w-md font-medium">Añade al menos un cliente en el panel para poder probar cómo interactúa la IA.</p>
+        </div>
+
+        <div id="sim-active" class="hidden flex-1 flex-col h-full overflow-hidden">
+          <div class="mb-8 flex items-center justify-between flex-shrink-0">
+            <div>
+              <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Entorno de Pruebas</h2>
+              <p class="text-slate-500 text-sm mt-2 font-medium">Simula la experiencia que tendrán los usuarios finales.</p>
+            </div>
+            <div class="bg-white p-1.5 rounded-xl shadow-sm border border-slate-200 flex items-center">
+              <select id="sim-client-select" class="bg-transparent border-none text-slate-700 font-bold px-4 py-2 outline-none focus:ring-0 cursor-pointer">
+                <!-- Opciones cargadas por JS -->
+              </select>
+            </div>
+          </div>
+
+          <div class="flex-1 bg-white border border-slate-200/80 rounded-[2rem] shadow-2xl flex flex-col max-w-sm mx-auto w-full overflow-hidden relative">
+            <!-- Header Chat -->
+            <div id="sim-chat-header" class="p-5 flex items-center justify-between shadow-sm z-10 bg-indigo-600 text-white">
+              <div class="flex items-center gap-3">
+                <div class="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm"><i data-lucide="bot" class="w-6 h-6"></i></div>
+                <div>
+                  <h3 id="sim-chat-title" class="font-bold text-lg leading-tight tracking-wide">Bot</h3>
+                  <div class="text-xs opacity-90 flex items-center gap-1.5 mt-0.5 font-medium"><div class="w-2 h-2 bg-green-400 rounded-full shadow-[0_0_8px_rgba(74,222,128,0.8)]"></div> En línea</div>
+                </div>
+              </div>
+              <button id="sim-btn-wa" class="hidden bg-white/20 hover:bg-white/30 backdrop-blur-md text-white text-xs font-bold py-2 px-3.5 rounded-xl transition flex items-center gap-1">
+                Asesor
+              </button>
+            </div>
+
+            <!-- Messages -->
+            <div id="sim-messages" class="flex-1 p-5 overflow-y-auto bg-slate-50/50 flex flex-col gap-5 custom-scrollbar">
+              <!-- Mensajes cargados por JS -->
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="sim-loading" class="hidden flex justify-start p-5 pt-0">
+              <div class="bg-white border border-slate-100 rounded-2xl rounded-bl-sm px-5 py-4 flex items-center gap-1.5 shadow-sm">
+                <div class="w-2 h-2 bg-slate-300 rounded-full animate-bounce"></div>
+                <div class="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                <div class="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+              </div>
+            </div>
+
+            <!-- Input -->
+            <form id="sim-form" class="p-4 bg-white border-t border-slate-100 flex gap-3 z-10 flex-shrink-0">
+              <input type="text" id="sim-input" class="flex-1 bg-slate-100 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 rounded-full px-5 py-3 outline-none transition-all text-sm" placeholder="Escribe un mensaje..." autocomplete="off">
+              <button type="submit" id="sim-btn-send" class="text-white w-12 h-12 rounded-full transition-all flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:scale-100 bg-indigo-600">
+                <i data-lucide="send" class="w-5 h-5 ml-1"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      
+    </main>
+  </div>
+
+  <!-- ================= MODAL: CÓDIGO EMBED ================= -->
+  <div id="modal-embed" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden border border-white/20">
+      <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <div class="flex items-center gap-3">
+          <div class="bg-indigo-100 p-2.5 rounded-xl text-indigo-600 shadow-sm"><i data-lucide="code" class="w-6 h-6"></i></div>
+          <div>
+            <h2 class="text-xl font-bold text-slate-800 tracking-tight">Integración Web</h2>
+            <p id="embed-client-name" class="text-sm text-slate-500 font-medium">Copia y pega este código en la web</p>
+          </div>
+        </div>
+        <button id="btn-close-embed" class="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      
+      <div class="p-8 overflow-y-auto flex-1 bg-white">
+        <div class="bg-indigo-50 border border-indigo-100 p-5 rounded-2xl mb-6 flex gap-4 text-indigo-900 shadow-inner">
+          <i data-lucide="alert-circle" class="w-6 h-6 flex-shrink-0 text-indigo-600 mt-0.5"></i>
+          <div class="text-sm leading-relaxed">
+            <strong class="block mb-1 text-base">Último paso antes de lanzar 🚀</strong>
+            Recuerda generar tu API Key gratuita en Google AI Studio y reemplazar <code class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-mono font-bold">TU_API_KEY_AQUI</code> en el código. ¡El diseño premium del widget ya viene incluido!
+          </div>
+        </div>
+
+        <div class="relative group">
+          <pre id="embed-code-block" class="bg-[#0B1120] text-slate-300 p-6 rounded-2xl overflow-x-auto text-xs font-mono border border-slate-800 h-72 custom-scrollbar shadow-inner leading-relaxed"></pre>
+          <button id="btn-copy-embed" class="absolute top-4 right-4 px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-xl transition-all flex items-center gap-2 font-bold shadow-lg">
+            <i data-lucide="copy" id="copy-icon" class="w-4 h-4"></i>
+            <span id="copy-text">Copiar Código</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= LÓGICA JAVASCRIPT ================= -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- CONFIGURACIÓN FIREBASE ---
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+    // Para el Widget final
+    const USER_FIREBASE_CONFIG = `{
+      apiKey: "AIzaSyA9HXjjB67QPFRdikkkWALy4w3tDh24qdQ",
+      authDomain: "chatbotequalsby.firebaseapp.com",
+      projectId: "chatbotequalsby",
+      storageBucket: "chatbotequalsby.firebasestorage.app",
+      messagingSenderId: "1033372010908",
+      appId: "1:1033372010908:web:ae7289aa4cfd1ca7cda059"
+    }`;
+
+    // --- ESTADO GLOBAL ---
+    let currentUser = null;
+    let clients = [];
+    let currentView = 'clients'; // 'clients', 'editor', 'simulator'
+    let selectedClient = null;
+    let simMessages = [];
+
+    // --- ELEMENTOS DEL DOM ---
+    const vLoader = document.getElementById('view-loader');
+    const vAuth = document.getElementById('view-auth');
+    const vDash = document.getElementById('view-dashboard');
+    const secClients = document.getElementById('section-clients');
+    const secEditor = document.getElementById('section-editor');
+    const secSim = document.getElementById('section-simulator');
+
+    // Inicializar Iconos
+    lucide.createIcons();
+    const updateIcons = () => setTimeout(() => lucide.createIcons(), 10);
+
+    // --- NAVEGACIÓN ---
+    function switchView(view) {
+      currentView = view;
+      secClients.classList.add('hidden');
+      secEditor.classList.add('hidden');
+      secSim.classList.add('hidden');
+
+      // Update sidebar styling
+      document.getElementById('nav-clients').className = `w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group ${view === 'clients' || view === 'editor' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`;
+      document.getElementById('nav-simulator').className = `w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group ${view === 'simulator' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`;
+
+      if (view === 'clients') {
+        secClients.classList.remove('hidden');
+        renderClientsList();
+      } else if (view === 'editor') {
+        secEditor.classList.remove('hidden');
+        populateEditor();
+      } else if (view === 'simulator') {
+        secSim.classList.remove('hidden');
+        renderSimulator();
+      }
+      updateIcons();
+    }
+
+    document.getElementById('nav-clients').onclick = () => switchView('clients');
+    document.getElementById('nav-simulator').onclick = () => switchView('simulator');
+
+    // --- AUTENTICACIÓN ---
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth init error:", error);
+      }
+    };
+    initAuth();
+
+    onAuthStateChanged(auth, (user) => {
+      vLoader.classList.add('hidden');
+      if (user && (!user.isAnonymous || typeof __initial_auth_token !== 'undefined')) {
+        currentUser = user;
+        vAuth.classList.add('hidden');
+        vDash.classList.remove('hidden');
+        
+        const safeEmail = user.email || 'Administrador';
+        document.getElementById('user-email').textContent = safeEmail;
+        document.getElementById('user-avatar').textContent = safeEmail.charAt(0).toUpperCase();
+        
+        loadClientsData();
+        switchView('clients');
+      } else {
+        currentUser = null;
+        vDash.classList.add('hidden');
+        vAuth.classList.remove('hidden');
+      }
+    });
+
+    // Formulario de Inicio de Sesión de Único Administrador
+    document.getElementById('auth-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value;
+      const pwd = document.getElementById('auth-password').value;
+      const errBox = document.getElementById('auth-error');
+      const submitBtn = document.getElementById('auth-submit-btn');
+      
+      errBox.classList.add('hidden');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>`;
+      updateIcons();
+
+      try {
+        // Intenta iniciar sesión
+        await signInWithEmailAndPassword(auth, email, pwd);
+      } catch (err) {
+        // Si la cuenta no existe (porque es el primer uso), la creamos automáticamente
+        try {
+          await createUserWithEmailAndPassword(auth, email, pwd);
+        } catch(createErr) {
+          errBox.classList.remove('hidden');
+          document.getElementById('auth-error-msg').textContent = 'Credenciales incorrectas.';
+        }
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span id="auth-submit-text">Acceder al Panel</span>`;
+      }
+    };
+
+    document.getElementById('btn-logout').onclick = () => signOut(auth);
+
+    // --- BASE DE DATOS (CLIENTES) ---
+    let unsubscribeClients = null;
+    function loadClientsData() {
+      if (!currentUser) return;
+      if (unsubscribeClients) unsubscribeClients();
+      const clientsRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'chatbot_clients');
+      unsubscribeClients = onSnapshot(clientsRef, (snapshot) => {
+        clients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (currentView === 'clients') renderClientsList();
+        if (currentView === 'simulator') updateSimulatorOptions();
+      });
+    }
+
+    function renderClientsList() {
+      const grid = document.getElementById('clients-grid');
+      const emptyState = document.getElementById('clients-empty');
+      grid.innerHTML = '';
+      
+      if (clients.length === 0) {
+        emptyState.classList.remove('hidden');
+        grid.classList.add('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        grid.classList.remove('hidden');
+        
+        clients.forEach(client => {
+          const card = document.createElement('div');
+          card.className = "bg-white rounded-3xl p-6 border border-slate-200/60 shadow-xl shadow-slate-200/20 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden";
+          card.innerHTML = `
+            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-50 to-transparent rounded-bl-full -z-10 opacity-50"></div>
+            <div class="flex justify-between items-start mb-6">
+              <div class="w-14 h-14 bg-gradient-to-tr from-indigo-100 to-purple-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-2xl shadow-sm border border-white">
+                ${(client.name || 'C').charAt(0).toUpperCase()}
+              </div>
+              <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="btn-edit p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl bg-slate-50 border border-slate-100 shadow-sm transition-all" data-id="${client.id}">
+                  <i data-lucide="edit-3" class="w-4 h-4 pointer-events-none"></i>
+                </button>
+                <button class="btn-delete p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl bg-slate-50 border border-slate-100 shadow-sm transition-all" data-id="${client.id}">
+                  <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
+                </button>
+              </div>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800 mb-1 tracking-tight">${client.name}</h3>
+            <p class="text-sm text-slate-500 mb-6 truncate">${client.domain || 'Sin dominio configurado'}</p>
+            <div class="bg-slate-50/80 rounded-xl p-3.5 text-xs text-slate-600 border border-slate-100 flex items-center gap-3 mb-6 font-medium">
+              <div class="p-1.5 bg-white rounded-lg shadow-sm text-indigo-500"><i data-lucide="bot" class="w-4 h-4"></i></div>
+              <span>BD: ${client.knowledgeBase ? client.knowledgeBase.length : 0} caracteres</span>
+            </div>
+            <button class="btn-edit w-full py-3 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl text-sm font-semibold transition-colors shadow-md" data-id="${client.id}">
+              Configurar Bot
+            </button>
+          `;
+          grid.appendChild(card);
+        });
+
+        // Attach events
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+          btn.onclick = (e) => {
+            selectedClient = clients.find(c => c.id === e.currentTarget.dataset.id);
+            switchView('editor');
+          };
+        });
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+          btn.onclick = async (e) => {
+            if (!confirm('¿Eliminar cliente permanentemente?')) return;
+            const id = e.currentTarget.dataset.id;
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'chatbot_clients', id));
+          };
+        });
+      }
+      updateIcons();
+    }
+
+    const openNewClient = () => { selectedClient = null; switchView('editor'); };
+    document.getElementById('btn-new-client').onclick = openNewClient;
+    document.getElementById('btn-new-client-empty').onclick = openNewClient;
+
+    // --- EDITOR ---
+    function populateEditor() {
+      const data = selectedClient || { name:'', domain:'', greeting:'¡Hola! Soy el asistente virtual. ¿En qué te puedo ayudar?', knowledgeBase:'', primaryColor:'#4F46E5', whatsapp:'' };
+      document.getElementById('edit-id').value = data.id || '';
+      document.getElementById('edit-name').value = data.name;
+      document.getElementById('edit-domain').value = data.domain || '';
+      document.getElementById('edit-greeting').value = data.greeting;
+      document.getElementById('edit-color').value = data.primaryColor;
+      document.getElementById('edit-color-hex').textContent = data.primaryColor;
+      document.getElementById('edit-whatsapp').value = data.whatsapp || '';
+      document.getElementById('edit-knowledge').value = data.knowledgeBase || '';
+      
+      document.getElementById('editor-title').textContent = selectedClient ? 'Editar Cliente' : 'Crear Nuevo Cliente';
+      const embedBtn = document.getElementById('btn-show-embed');
+      if(selectedClient) embedBtn.classList.remove('hidden'); else embedBtn.classList.add('hidden');
+    }
+
+    document.getElementById('edit-color').addEventListener('input', (e) => {
+      document.getElementById('edit-color-hex').textContent = e.target.value.toUpperCase();
+    });
+
+    document.getElementById('btn-cancel-edit').onclick = () => switchView('clients');
+
+    document.getElementById('btn-save-client').onclick = async () => {
+      const name = document.getElementById('edit-name').value;
+      if(!name) return alert("El nombre es requerido");
+      
+      const clientData = {
+        name,
+        domain: document.getElementById('edit-domain').value,
+        greeting: document.getElementById('edit-greeting').value,
+        primaryColor: document.getElementById('edit-color').value,
+        whatsapp: document.getElementById('edit-whatsapp').value,
+        knowledgeBase: document.getElementById('edit-knowledge').value
+      };
+      
+      const cid = document.getElementById('edit-id').value || crypto.randomUUID();
+      await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'chatbot_clients', cid), { ...clientData, id: cid, updatedAt: new Date().toISOString() });
+      switchView('clients');
+    };
+
+    // --- EXTRACCIÓN DE PDF ---
+    const btnUploadPdf = document.getElementById('btn-upload-pdf');
+    const inputPdf = document.getElementById('pdf-upload');
+    btnUploadPdf.onclick = () => inputPdf.click();
+
+    inputPdf.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.type !== "application/pdf") return alert("Solo archivos PDF.");
+      
+      const icon = document.getElementById('pdf-icon');
+      const txt = document.getElementById('pdf-btn-text');
+      icon.setAttribute('data-lucide', 'loader-2');
+      icon.classList.add('animate-spin');
+      txt.textContent = 'Leyendo...';
+      updateIcons();
+
+      try {
+        if (!window.pdfjsLib) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.onload = () => {
+              window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+              resolve();
+            };
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let extractedText = `\n--- Info Extraída de ${file.name} ---\n`;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          extractedText += textContent.items.map(item => item.str).join(" ") + "\n";
+        }
+        const kb = document.getElementById('edit-knowledge');
+        kb.value = kb.value ? kb.value + "\n" + extractedText : extractedText.trim();
+      } catch (error) {
+        alert("Error al extraer PDF.");
+      } finally {
+        icon.setAttribute('data-lucide', 'upload-cloud');
+        icon.classList.remove('animate-spin');
+        txt.textContent = 'Entrenar con PDF';
+        updateIcons();
+        inputPdf.value = '';
+      }
+    };
+
+    // --- WIDGET EMBED ---
+    const modalEmbed = document.getElementById('modal-embed');
+    document.getElementById('btn-show-embed').onclick = () => {
+      document.getElementById('embed-client-name').textContent = `Para la web de ${selectedClient.name}`;
+      
+      const waHTML = selectedClient.whatsapp ? `<button id="mi-chatbot-wa" style="background:#25D366; color:white; border:none; padding:6px 12px; border-radius:20px; cursor:pointer; font-size:12px; margin-right:8px; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display:flex; align-items:center; gap:5px;">💬 Asesor Humano</button>` : '';
+      const kbSafe = (selectedClient.knowledgeBase || '').replace(/`/g, "'");
+
+      const code = `
+<!-- Widget Inteligente de ${selectedClient.name} -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  const firebaseConfig = ${USER_FIREBASE_CONFIG};
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  
+  const GEMINI_API_KEY = "TU_API_KEY_AQUI"; 
+
+  const style = document.createElement('style');
+  style.innerHTML = \`
+    #mi-chatbot-btn { position: fixed; bottom: 25px; right: 25px; width: 65px; height: 65px; border-radius: 50%; background: linear-gradient(135deg, ${selectedClient.primaryColor}, #000); color: white; border: none; box-shadow: 0 8px 24px rgba(0,0,0,0.2); cursor: pointer; z-index: 9999; display: flex; align-items: center; justify-content: center; font-size: 28px; transition: transform 0.3s ease;}
+    #mi-chatbot-btn:hover { transform: scale(1.1); }
+    #mi-chatbot-window { position: fixed; bottom: 100px; right: 25px; width: 380px; height: 550px; background: #fff; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 9999; display: none; flex-direction: column; overflow: hidden; font-family: system-ui, sans-serif; border: 1px solid #f0f0f0;}
+    #mi-chatbot-header { background: ${selectedClient.primaryColor}; color: white; padding: 18px 20px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+    #mi-chatbot-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #f8fafc; }
+    #mi-chatbot-input-container { display: flex; padding: 15px; border-top: 1px solid #f1f5f9; background: white; gap:10px; }
+    #mi-chatbot-input { flex: 1; padding: 12px 18px; border: 1px solid #e2e8f0; border-radius: 25px; outline: none; font-size:14px; background:#f8fafc; transition: all 0.2s; }
+    #mi-chatbot-input:focus { border-color: ${selectedClient.primaryColor}; background:white; }
+    #mi-chatbot-send { background: ${selectedClient.primaryColor}; border: none; color: white; cursor: pointer; font-weight: bold; padding:0 20px; border-radius:25px; }
+    .msg { max-width: 85%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5; box-shadow: 0 2px 5px rgba(0,0,0,0.02);}
+    .msg-bot { background: white; border: 1px solid #e2e8f0; align-self: flex-start; border-bottom-left-radius: 4px; color:#334155; }
+    .msg-user { background: ${selectedClient.primaryColor}; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+  \`;
+  document.head.appendChild(style);
+
+  const container = document.createElement('div');
+  container.innerHTML = \`
+    <button id="mi-chatbot-btn">✨</button>
+    <div id="mi-chatbot-window">
+      <div id="mi-chatbot-header">
+        <div style="display:flex; align-items:center; gap:10px;"><div style="width:10px; height:10px; background:#4ade80; border-radius:50%;"></div>${selectedClient.name}</div>
+        <div style="display:flex; align-items:center;">
+          ${waHTML}
+          <button id="mi-chatbot-close" style="background:none;border:none;color:white;cursor:pointer;font-size:20px;padding:0 5px;">&times;</button>
+        </div>
+      </div>
+      <div id="mi-chatbot-messages"><div class="msg msg-bot">${selectedClient.greeting}</div></div>
+      <div id="mi-chatbot-input-container">
+        <input type="text" id="mi-chatbot-input" placeholder="Escribe aquí..." autocomplete="off" />
+        <button id="mi-chatbot-send">Enviar</button>
+      </div>
+    </div>
+  \`;
+  document.body.appendChild(container);
+
+  const btn = document.getElementById('mi-chatbot-btn');
+  const win = document.getElementById('mi-chatbot-window');
+  const close = document.getElementById('mi-chatbot-close');
+  const sendBtn = document.getElementById('mi-chatbot-send');
+  const input = document.getElementById('mi-chatbot-input');
+  const msgsDiv = document.getElementById('mi-chatbot-messages');
+  const waBtn = document.getElementById('mi-chatbot-wa');
+
+  btn.onclick = () => { win.style.display = 'flex'; setTimeout(()=> input.focus(), 100); };
+  close.onclick = () => win.style.display = 'none';
+
+  let history = [];
+  if (waBtn) {
+    waBtn.onclick = () => {
+      let text = "Hola, necesito hablar con un asesor.\\n\\n*--- Historial de IA ---*\\n";
+      history.forEach(m => text += \`*\${m.role==='user'?'Cliente':'Bot'}:* \${m.text.split('*').join('')}\\n\`);
+      window.open("https://wa.me/${selectedClient.whatsapp}?text=" + encodeURIComponent(text), "_blank");
+    };
+  }
+
+  async function callGemini(userText) {
+    msgsDiv.innerHTML += \`<div class="msg msg-user">\${userText}</div>\`;
+    input.value = ''; msgsDiv.scrollTop = msgsDiv.scrollHeight;
+    
+    const tid = 'typing-' + Date.now();
+    msgsDiv.innerHTML += \`<div id="\${tid}" class="msg msg-bot" style="opacity:0.6;">Escribiendo...</div>\`;
+    msgsDiv.scrollTop = msgsDiv.scrollHeight;
+
+    try {
+      const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY;
+      const contents = history.map(m => ({ role: m.role==='user'?'user':'model', parts: [{text: m.text}] }));
+      contents.push({ role: 'user', parts: [{ text: userText }] });
+
+      const res = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents, systemInstruction: { parts: [{ text: "Asistente amable. Responde SOLO con esta INFO:\\n" + \`${kbSafe}\` }] } })
+      });
+      const data = await res.json();
+      const botReply = data.candidates[0].content.parts[0].text;
+      
+      history.push({ role: 'user', text: userText }, { role: 'bot', text: botReply });
+      document.getElementById(tid).remove();
+      msgsDiv.innerHTML += \`<div class="msg msg-bot">\${botReply.replace(/\\n/g, '<br>')}</div>\`;
+      msgsDiv.scrollTop = msgsDiv.scrollHeight;
+    } catch (e) { document.getElementById(tid).innerHTML = "⚠️ Error de IA."; }
+  }
+
+  sendBtn.onclick = () => { if(input.value.trim()) callGemini(input.value.trim()); };
+  input.onkeypress = (e) => { if(e.key === 'Enter' && input.value.trim()) callGemini(input.value.trim()); };
+<\/script>`;
+      
+      document.getElementById('embed-code-block').textContent = code;
+      modalEmbed.classList.remove('hidden');
+    };
+
+    document.getElementById('btn-close-embed').onclick = () => modalEmbed.classList.add('hidden');
+    
+    document.getElementById('btn-copy-embed').onclick = () => {
+      navigator.clipboard.writeText(document.getElementById('embed-code-block').textContent);
+      const btn = document.getElementById('btn-copy-embed');
+      btn.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-green-400"></i><span>Copiado!</span>`;
+      updateIcons();
+      setTimeout(() => {
+        btn.innerHTML = `<i data-lucide="copy" class="w-4 h-4"></i><span>Copiar Código</span>`;
+        updateIcons();
+      }, 2000);
+    };
+
+    // --- SIMULADOR ---
+    function updateSimulatorOptions() {
+      const select = document.getElementById('sim-client-select');
+      select.innerHTML = '';
+      clients.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        select.appendChild(opt);
+      });
+      
+      if (clients.length > 0 && !selectedClient) {
+        selectedClient = clients[0];
+      }
+    }
+
+    document.getElementById('sim-client-select').onchange = (e) => {
+      selectedClient = clients.find(c => c.id === e.target.value);
+      renderSimulator();
+    };
+
+    function renderSimulator() {
+      updateSimulatorOptions();
+      const empty = document.getElementById('sim-empty');
+      const active = document.getElementById('sim-active');
+      
+      if (clients.length === 0) {
+        empty.classList.remove('hidden');
+        active.classList.add('hidden');
+        empty.classList.add('flex');
+        return;
+      }
+      
+      empty.classList.add('hidden');
+      empty.classList.remove('flex');
+      active.classList.remove('hidden');
+      active.classList.add('flex');
+
+      document.getElementById('sim-chat-title').textContent = selectedClient.name;
+      document.getElementById('sim-chat-header').style.backgroundColor = selectedClient.primaryColor;
+      document.getElementById('sim-btn-send').style.backgroundColor = selectedClient.primaryColor;
+      
+      const waBtn = document.getElementById('sim-btn-wa');
+      if (selectedClient.whatsapp) {
+        waBtn.classList.remove('hidden');
+        waBtn.onclick = () => {
+          let text = "Hola, necesito hablar con un asesor.\n\n*--- Historial del Asistente ---*\n";
+          simMessages.forEach(msg => {
+            text += `*${msg.role === 'user' ? 'Cliente' : 'Bot'}:* ${msg.text.split('*').join('')}\n`;
+          });
+          window.open(`https://wa.me/${selectedClient.whatsapp}?text=${encodeURIComponent(text)}`, "_blank");
+        };
+      } else {
+        waBtn.classList.add('hidden');
+      }
+
+      simMessages = [{ role: 'bot', text: selectedClient.greeting }];
+      drawMessages();
+    }
+
+    function drawMessages() {
+      const c = document.getElementById('sim-messages');
+      c.innerHTML = '';
+      simMessages.forEach(msg => {
+        const isUser = msg.role === 'user';
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+        
+        let styles = `max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm `;
+        if (isUser) {
+          styles += `text-white rounded-br-sm`;
+        } else {
+          styles += `bg-white border border-slate-100 text-slate-700 rounded-bl-sm`;
+        }
+        
+        const bubble = document.createElement('div');
+        bubble.className = styles;
+        if (isUser) bubble.style.backgroundColor = selectedClient.primaryColor;
+        bubble.innerHTML = msg.text.replace(/\n/g, '<br>');
+        
+        wrapper.appendChild(bubble);
+        c.appendChild(wrapper);
+      });
+      c.scrollTop = c.scrollHeight;
+    }
+
+    document.getElementById('sim-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('sim-input');
+      const text = input.value.trim();
+      if (!text || !selectedClient) return;
+
+      input.value = '';
+      input.disabled = true;
+      document.getElementById('sim-btn-send').disabled = true;
+      document.getElementById('sim-loading').classList.remove('hidden');
+
+      simMessages.push({ role: 'user', text });
+      drawMessages();
+
+      const apiKey = ""; // API dinámico de canvas
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+      try {
+        const contents = simMessages.filter(m => m.role !== 'bot' || m.text !== selectedClient.greeting).map(m => ({
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.text }]
+        }));
+        
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents,
+            systemInstruction: { parts: [{ text: "Eres un asistente virtual para " + selectedClient.name + ". Responde amablemente SOLO con esta información: \n" + selectedClient.knowledgeBase }] }
+          })
+        });
+        
+        const data = await res.json();
+        const reply = data.candidates[0].content.parts[0].text;
+        simMessages.push({ role: 'bot', text: reply });
+      } catch (err) {
+        simMessages.push({ role: 'bot', text: "Error de conexión con la IA." });
+      } finally {
+        document.getElementById('sim-loading').classList.add('hidden');
+        input.disabled = false;
+        document.getElementById('sim-btn-send').disabled = false;
+        input.focus();
+        drawMessages();
+      }
+    };
+  </script>
+</body>
+</html>
