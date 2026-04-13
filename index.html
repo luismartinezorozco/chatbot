@@ -340,11 +340,31 @@
   <!-- ================= LÓGICA JAVASCRIPT ================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // --- CONFIGURACIÓN FIREBASE ---
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    // --- CONFIGURACIÓN FIREBASE BLINDADA ---
+    let firebaseConfig = {};
+    try {
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+      }
+    } catch (e) {
+      console.warn("Usando configuración de respaldo");
+    }
+
+    // Si abres el archivo localmente o falla la inyección, usa tu Firebase real para no colapsar la app
+    if (!firebaseConfig || !firebaseConfig.apiKey) {
+      firebaseConfig = {
+        apiKey: "AIzaSyA9HXjjB67QPFRdikkkWALy4w3tDh24qdQ",
+        authDomain: "chatbotequalsby.firebaseapp.com",
+        projectId: "chatbotequalsby",
+        storageBucket: "chatbotequalsby.firebasestorage.app",
+        messagingSenderId: "1033372010908",
+        appId: "1:1033372010908:web:ae7289aa4cfd1ca7cda059"
+      };
+    }
+    
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -363,7 +383,7 @@
     // --- ESTADO GLOBAL ---
     let currentUser = null;
     let clients = [];
-    let currentView = 'clients'; // 'clients', 'editor', 'simulator'
+    let currentView = 'clients'; 
     let selectedClient = null;
     let simMessages = [];
 
@@ -375,9 +395,9 @@
     const secEditor = document.getElementById('section-editor');
     const secSim = document.getElementById('section-simulator');
 
-    // Inicializar Iconos
-    lucide.createIcons();
-    const updateIcons = () => setTimeout(() => lucide.createIcons(), 10);
+    // Inicializar Iconos de forma segura
+    const updateIcons = () => setTimeout(() => { try { lucide.createIcons(); } catch(e){} }, 10);
+    updateIcons();
 
     // --- NAVEGACIÓN ---
     function switchView(view) {
@@ -386,7 +406,6 @@
       secEditor.classList.add('hidden');
       secSim.classList.add('hidden');
 
-      // Update sidebar styling
       document.getElementById('nav-clients').className = `w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group ${view === 'clients' || view === 'editor' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`;
       document.getElementById('nav-simulator').className = `w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group ${view === 'simulator' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`;
 
@@ -406,7 +425,7 @@
     document.getElementById('nav-clients').onclick = () => switchView('clients');
     document.getElementById('nav-simulator').onclick = () => switchView('simulator');
 
-    // --- AUTENTICACIÓN ---
+    // --- AUTENTICACIÓN (LÓGICA SEPARADA PARA EVITAR CARGA INFINITA) ---
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -415,32 +434,31 @@
           await signInAnonymously(auth);
         }
       } catch (error) {
-        console.error("Auth init error:", error);
+        console.error("Error autenticando DB:", error);
       }
     };
     initAuth();
 
+    // Firebase detecta el usuario silencioso
     onAuthStateChanged(auth, (user) => {
-      vLoader.classList.add('hidden');
-      if (user && (!user.isAnonymous || typeof __initial_auth_token !== 'undefined')) {
+      if (user) {
         currentUser = user;
-        vAuth.classList.add('hidden');
-        vDash.classList.remove('hidden');
+        vLoader.classList.add('hidden');
         
-        const safeEmail = user.email || 'Administrador';
-        document.getElementById('user-email').textContent = safeEmail;
-        document.getElementById('user-avatar').textContent = safeEmail.charAt(0).toUpperCase();
-        
-        loadClientsData();
-        switchView('clients');
+        // Verificamos si ya inició sesión manualmente en la interfaz visual
+        if (sessionStorage.getItem('botadmin_logged') === 'true') {
+          showDashboard();
+        } else {
+          vAuth.classList.remove('hidden');
+        }
       } else {
-        currentUser = null;
-        vDash.classList.add('hidden');
+        // Si no hay usuario en absoluto, muestra el login
+        vLoader.classList.add('hidden');
         vAuth.classList.remove('hidden');
       }
     });
 
-    // Formulario de Inicio de Sesión de Único Administrador
+    // Validar visualmente el inicio de sesión del Administrador
     document.getElementById('auth-form').onsubmit = async (e) => {
       e.preventDefault();
       const email = document.getElementById('auth-email').value;
@@ -453,24 +471,35 @@
       submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>`;
       updateIcons();
 
-      try {
-        // Intenta iniciar sesión
-        await signInWithEmailAndPassword(auth, email, pwd);
-      } catch (err) {
-        // Si la cuenta no existe (porque es el primer uso), la creamos automáticamente
-        try {
-          await createUserWithEmailAndPassword(auth, email, pwd);
-        } catch(createErr) {
-          errBox.classList.remove('hidden');
-          document.getElementById('auth-error-msg').textContent = 'Credenciales incorrectas.';
-        }
-      } finally {
+      // Pequeña pausa simulando carga
+      await new Promise(r => setTimeout(r, 800));
+
+      if (email === 'admin@miempresa.com' && pwd === 'admin123456') {
+        sessionStorage.setItem('botadmin_logged', 'true');
+        showDashboard();
+      } else {
+        errBox.classList.remove('hidden');
+        document.getElementById('auth-error-msg').textContent = 'Credenciales incorrectas.';
         submitBtn.disabled = false;
         submitBtn.innerHTML = `<span id="auth-submit-text">Acceder al Panel</span>`;
       }
     };
 
-    document.getElementById('btn-logout').onclick = () => signOut(auth);
+    function showDashboard() {
+      vAuth.classList.add('hidden');
+      vDash.classList.remove('hidden');
+      
+      document.getElementById('user-email').textContent = 'admin@miempresa.com';
+      document.getElementById('user-avatar').textContent = 'A';
+      
+      loadClientsData();
+      switchView('clients');
+    }
+
+    document.getElementById('btn-logout').onclick = () => {
+      sessionStorage.removeItem('botadmin_logged');
+      location.reload();
+    };
 
     // --- BASE DE DATOS (CLIENTES) ---
     let unsubscribeClients = null;
@@ -528,7 +557,6 @@
           grid.appendChild(card);
         });
 
-        // Attach events
         document.querySelectorAll('.btn-edit').forEach(btn => {
           btn.onclick = (e) => {
             selectedClient = clients.find(c => c.id === e.currentTarget.dataset.id);
